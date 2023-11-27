@@ -5,9 +5,19 @@ from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import jwt
+from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Разрешить все домены (это можно настроить на конкретные домены в production)
+    allow_credentials=True,
+    allow_methods=["*"],  # Разрешить все HTTP-методы
+    allow_headers=["*"],  # Разрешить все заголовки
+)
+
 DATABASE_URL = "sqlite:///./test.db"
 Base = declarative_base()
 engine = create_engine(DATABASE_URL)
