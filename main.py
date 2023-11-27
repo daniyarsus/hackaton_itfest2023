@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy import create_engine, Column, Integer, String, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import jwt
@@ -18,7 +18,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 DATABASE_URL = "sqlite:///./test.db"
 Base = declarative_base()
 engine = create_engine(DATABASE_URL)
@@ -32,10 +31,11 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     password = Column(String)
     role = Column(String, default="student")
-    group = Column(Integer, default="")  # Добавлено новое поле
-    course = Column(Integer, default="")  # Добавлено новое поле
-    first_name = Column(String, default="")  # Добавлено новое поле
-    last_name = Column(String, default="")  # Добавлено новое поле
+    group = Column(String, default="")
+    course = Column(Integer, default="")
+    number = Column(String)  # Новое поле
+    isGrant = Column(Boolean, default=False)  # Новое поле
+    isScholarship = Column(Boolean, default=False)  # Новое поле
 
 Base.metadata.create_all(bind=engine)
 
@@ -49,11 +49,11 @@ class UserInRegistration(BaseModel):
     username: str
     email: str
     password: str
-    group: int  # Добавлено новое поле
-    course: int  # Добавлено новое поле
-    first_name: str  # Добавлено новое поле
-    last_name: str  # Добавлено новое поле
-
+    group: int
+    course: int
+    number: str  # Новое поле
+    isGrant: bool  # Новое поле
+    isScholarship: bool  # Новое поле
 
 SECRET_KEY = "BEBRA228"
 ALGORITHM = "HS256"
@@ -104,14 +104,23 @@ async def register(user_in: UserInRegistration):
         password=user_in.password,
         group=user_in.group,
         course=user_in.course,
-        first_name=user_in.first_name,
-        last_name=user_in.last_name,
+        number=user_in.number,  # Новое поле
+        isGrant=user_in.isGrant,  # Новое поле
+        isScholarship=user_in.isScholarship,  # Новое поле
     )
 
     session.add(user)
     session.commit()
 
-    return {"username": user.username, "email": user.email, "group": user.group, "course": user.course, "first_name": user.first_name, "last_name": user.last_name}
+    return {
+        "username": user.username,
+        "email": user.email,
+        "group": user.group,
+        "course": user.course,
+        "number": user.number,
+        "isGrant": user.isGrant,
+        "isScholarship": user.isScholarship,
+    }
 
 
 @app.post("/token")
@@ -144,11 +153,14 @@ async def read_users_profile(current_user: User = Depends(get_current_user)):
         "email": current_user.email,
         "group": current_user.group,
         "course": current_user.course,
-        "first_name": current_user.first_name,
-        "last_name": current_user.last_name,
+        "number": current_user.number,
+        "isGrant": current_user.isGrant,
+        "isScholarship": current_user.isScholarship,
     }
 
+
 from typing import List
+
 @app.get("/students", response_model=List[dict])
 async def get_students_by_group(current_user: User = Depends(get_current_user)):
     session = SessionLocal()
@@ -156,7 +168,7 @@ async def get_students_by_group(current_user: User = Depends(get_current_user)):
     # Получаем список студентов с той же группы, что и текущий пользователь
     students = (
         session.query(User)
-        .filter(User.group == current_user.group, User.id != current_user.id)  # Добавлен фильтр для исключения текущего пользователя
+        .filter(User.group == current_user.group, User.id != current_user.id)
         .all()
     )
 
@@ -167,8 +179,9 @@ async def get_students_by_group(current_user: User = Depends(get_current_user)):
             "email": student.email,
             "group": student.group,
             "course": student.course,
-            "first_name": student.first_name,
-            "last_name": student.last_name,
+            "number": student.number,
+            "isGrant": student.isGrant,
+            "isScholarship": student.isScholarship,
         }
         for student in students
     ]
