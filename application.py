@@ -26,7 +26,6 @@ class User(Base):
     first_name = Column(String, default="")  # Добавлено новое поле
     last_name = Column(String, default="")  # Добавлено новое поле
 
-
 Base.metadata.create_all(bind=engine)
 
 
