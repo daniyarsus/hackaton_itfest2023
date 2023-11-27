@@ -44,16 +44,17 @@ class UserIn(BaseModel):
     username: str
     password: str
 
-
 class UserInRegistration(BaseModel):
     username: str
     email: str
     password: str
+
+class UserRegistrationDetails(BaseModel):
     group: int
     course: int
-    number: str  # Новое поле
-    isGrant: bool  # Новое поле
-    isScholarship: bool  # Новое поле
+    number: str
+    isGrant: bool
+    isScholarship: bool
 
 SECRET_KEY = "BEBRA228"
 ALGORITHM = "HS256"
@@ -102,11 +103,6 @@ async def register(user_in: UserInRegistration):
         username=user_in.username,
         email=user_in.email,
         password=user_in.password,
-        group=user_in.group,
-        course=user_in.course,
-        number=user_in.number,  # Новое поле
-        isGrant=user_in.isGrant,  # Новое поле
-        isScholarship=user_in.isScholarship,  # Новое поле
     )
 
     session.add(user)
@@ -115,11 +111,31 @@ async def register(user_in: UserInRegistration):
     return {
         "username": user.username,
         "email": user.email,
-        "group": user.group,
-        "course": user.course,
-        "number": user.number,
-        "isGrant": user.isGrant,
-        "isScholarship": user.isScholarship,
+    }
+
+@app.post("/user-info")
+async def user_info(user_details: UserRegistrationDetails, current_user: User = Depends(get_current_user)):
+    # Объединяем текущего пользователя с сеансом базы данных
+    session = SessionLocal()
+    existing_user = session.merge(current_user)
+
+    # Обновляем поля пользователя
+    existing_user.group = user_details.group
+    existing_user.course = user_details.course
+    existing_user.number = user_details.number
+    existing_user.isGrant = user_details.isGrant
+    existing_user.isScholarship = user_details.isScholarship
+
+    # Сохраняем изменения в базе данных
+    session.commit()
+
+    # Возвращение обновленных данных
+    return {
+        "group": existing_user.group,
+        "course": existing_user.course,
+        "number": existing_user.number,
+        "isGrant": existing_user.isGrant,
+        "isScholarship": existing_user.isScholarship,
     }
 
 
