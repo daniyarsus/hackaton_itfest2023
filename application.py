@@ -21,6 +21,11 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     password = Column(String)
     role = Column(String, default="student")
+    group = Column(String, default="")  # Добавлено новое поле
+    grade = Column(String, default="")  # Добавлено новое поле
+    first_name = Column(String, default="")  # Добавлено новое поле
+    last_name = Column(String, default="")  # Добавлено новое поле
+
 
 
 Base.metadata.create_all(bind=engine)
@@ -35,6 +40,10 @@ class UserInRegistration(BaseModel):
     username: str
     email: str
     password: str
+    group: str  # Добавлено новое поле
+    grade: str  # Добавлено новое поле
+    first_name: str  # Добавлено новое поле
+    last_name: str  # Добавлено новое поле
 
 
 SECRET_KEY = "your_secret_key"
@@ -73,10 +82,27 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 @app.post("/register")
 async def register(user_in: UserInRegistration):
     session = SessionLocal()
-    user = User(username=user_in.username, email=user_in.email, password=user_in.password)
+
+    if session.query(User).filter(User.username == user_in.username).first() is not None:
+        raise HTTPException(status_code=400, detail="Username already registered")
+
+    if session.query(User).filter(User.email == user_in.email).first() is not None:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    user = User(
+        username=user_in.username,
+        email=user_in.email,
+        password=user_in.password,
+        group=user_in.group,
+        grade=user_in.grade,
+        first_name=user_in.first_name,
+        last_name=user_in.last_name,
+    )
+
     session.add(user)
     session.commit()
-    return {"username": user.username, "email": user.email}
+
+    return {"username": user.username, "email": user.email, "group": user.group, "grade": user.grade, "first_name": user.first_name, "last_name": user.last_name}
 
 
 @app.post("/token")
@@ -105,3 +131,5 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 @app.get("/users/me")
 async def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
