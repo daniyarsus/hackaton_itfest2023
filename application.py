@@ -21,11 +21,10 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     password = Column(String)
     role = Column(String, default="student")
-    group = Column(String, default="")  # Добавлено новое поле
-    grade = Column(String, default="")  # Добавлено новое поле
+    group = Column(Integer, default="")  # Добавлено новое поле
+    course = Column(Integer, default="")  # Добавлено новое поле
     first_name = Column(String, default="")  # Добавлено новое поле
     last_name = Column(String, default="")  # Добавлено новое поле
-
 
 
 Base.metadata.create_all(bind=engine)
@@ -40,13 +39,13 @@ class UserInRegistration(BaseModel):
     username: str
     email: str
     password: str
-    group: str  # Добавлено новое поле
-    grade: str  # Добавлено новое поле
+    group: int  # Добавлено новое поле
+    course: int  # Добавлено новое поле
     first_name: str  # Добавлено новое поле
     last_name: str  # Добавлено новое поле
 
 
-SECRET_KEY = "your_secret_key"
+SECRET_KEY = "BEBRA228"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -94,7 +93,7 @@ async def register(user_in: UserInRegistration):
         email=user_in.email,
         password=user_in.password,
         group=user_in.group,
-        grade=user_in.grade,
+        course=user_in.course,
         first_name=user_in.first_name,
         last_name=user_in.last_name,
     )
@@ -102,7 +101,7 @@ async def register(user_in: UserInRegistration):
     session.add(user)
     session.commit()
 
-    return {"username": user.username, "email": user.email, "group": user.group, "grade": user.grade, "first_name": user.first_name, "last_name": user.last_name}
+    return {"username": user.username, "email": user.email, "group": user.group, "course": user.course, "first_name": user.first_name, "last_name": user.last_name}
 
 
 @app.post("/token")
@@ -128,8 +127,40 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@app.get("/users/me")
-async def read_users_me(current_user: User = Depends(get_current_user)):
-    return current_user
+@app.get("/profile")
+async def read_users_profile(current_user: User = Depends(get_current_user)):
+    return {
+        "username": current_user.username,
+        "email": current_user.email,
+        "group": current_user.group,
+        "course": current_user.course,
+        "first_name": current_user.first_name,
+        "last_name": current_user.last_name,
+    }
 
+from typing import List
+@app.get("/students", response_model=List[dict])
+async def get_students_by_group(current_user: User = Depends(get_current_user)):
+    session = SessionLocal()
 
+    # Получаем список студентов с той же группы, что и текущий пользователь
+    students = (
+        session.query(User)
+        .filter(User.group == current_user.group, User.id != current_user.id)  # Добавлен фильтр для исключения текущего пользователя
+        .all()
+    )
+
+    # Преобразуем результат в список словарей для возврата в JSON
+    students_data = [
+        {
+            "username": student.username,
+            "email": student.email,
+            "group": student.group,
+            "course": student.course,
+            "first_name": student.first_name,
+            "last_name": student.last_name,
+        }
+        for student in students
+    ]
+
+    return students_data
