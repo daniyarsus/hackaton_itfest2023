@@ -13,3 +13,8 @@ def read_item(item_id: int, query_param: str = None):
 @app.post("/create_item/{item_name}")
 def create_item(item_name: str):
     return {"item_name": item_name, "message": "Item created successfully"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app="main:app", reload=True)
