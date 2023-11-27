@@ -7,15 +7,16 @@ from sqlalchemy.orm import sessionmaker
 import jwt
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
+from passlib.context import CryptContext  # Import for password hashing
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Разрешить все домены (это можно настроить на конкретные домены в production)
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Разрешить все HTTP-методы
-    allow_headers=["*"],  # Разрешить все заголовки
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 DATABASE_URL = "sqlite:///./test.db"
@@ -47,11 +48,13 @@ class UserInRegistration(BaseModel):
     password: str
 
 
-SECRET_KEY = "your_secret_key"
+SECRET_KEY = "your_secure_random_key"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
@@ -65,27 +68,44 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     return encoded_jwt
 
 
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
-            raise HTTPException(status_code=401, detail="Неверные учетные данные")
+            raise HTTPException(status_code=401, detail="Invalid credentials")
     except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Неверные учетные данные")
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
     session = SessionLocal()
     user = session.query(User).filter(User.username == username).first()
+
     if user is None:
-        raise HTTPException(status_code=401, detail="Неверные учетные данные")
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
     return user
 
 
 @app.post("/register")
 async def register(user_in: UserInRegistration):
     session = SessionLocal()
-    user = User(username=user_in.username, email=user_in.email, password=user_in.password)
+
+    if session.query(User).filter(User.username == user_in.username).first() is not None:
+        raise HTTPException(status_code=400, detail="Username already registered")
+
+    if session.query(User).filter(User.email == user_in.email).first() is not None:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    hashed_password = get_password_hash(user_in.password)
+    user = User(username=user_in.username, email=user_in.email, password=hashed_password)
+
     session.add(user)
     session.commit()
+
     return {"username": user.username, "email": user.email}
 
 
@@ -93,22 +113,20 @@ async def register(user_in: UserInRegistration):
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     session = SessionLocal()
 
-    # Аутентификация с использованием имени пользователя или электронной почты
     user = session.query(User).filter(
         (User.username == form_data.username) | (User.email == form_data.username)
     ).first()
 
-    if not user or user.password != form_data.password:
+    if not user or not pwd_context.verify(form_data.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Неверное имя пользователя или пароль",
+            detail="Invalid username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
+    access_token = create_access_token(data={"sub": user.username}, expires_delta=access_token_expires)
+
     return {"access_token": access_token, "token_type": "bearer"}
 
 
