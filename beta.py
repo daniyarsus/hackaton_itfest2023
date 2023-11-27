@@ -10,7 +10,6 @@ from mangum import Mangum
 
 app = FastAPI()
 
-mangum = Mangum(app)
 DATABASE_URL = "sqlite:///./test.db"
 Base = declarative_base()
 engine = create_engine(DATABASE_URL)

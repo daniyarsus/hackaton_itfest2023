@@ -1,3 +1,6 @@
-/opt/render/project/src/.venv/bin/python -m pip install --upgrade pip
-fastapi>=0.80.0
-uvicorn==0.24.0
+fastapi==0.80.0
+uvicorn==0.15.0
+python-jose==3.3.0
+sqlalchemy==1.4.31
+python-multipart==0.0.6
+PyJWT==2.8.0
