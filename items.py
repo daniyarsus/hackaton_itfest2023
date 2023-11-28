@@ -4,7 +4,9 @@ from sqlalchemy.orm import sessionmaker, Session, relationship
 from db.database import *
 from config.dependencies import *
 
-item = FastAPI()
+from fastapi import APIRouter
+
+item = APIRouter()
 
 # Эндпоинт для регистрации нового пользователя
 @item.post("/register")
