@@ -190,10 +190,27 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-# Эндпоинт для получения профиля пользователя
 @app.get("/profile")
-async def read_users_profile(current_user: User = Depends(get_current_user)):
-    return {
+async def read_users_profile_with_grades(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Fetch user's grades and comments
+    user_grades = db.query(Grade).filter(Grade.student_id == current_user.id).all()
+
+    # Extract relevant information for each grade
+    grades_data = [
+        {
+            "value": grade.value,
+            "comment": grade.comment,
+            "teacher": {
+                "username": grade.teacher.username,
+                "email": grade.teacher.email,
+                "role": grade.teacher.role,
+            },
+        }
+        for grade in user_grades
+    ]
+
+    # Create a response payload
+    profile_data = {
         "username": current_user.username,
         "email": current_user.email,
         "group": current_user.group,
@@ -201,11 +218,10 @@ async def read_users_profile(current_user: User = Depends(get_current_user)):
         "number": current_user.number,
         "isGrant": current_user.isGrant,
         "isScholarship": current_user.isScholarship,
+        "grades": grades_data,
     }
 
-
-# Эндпоинт для получения списка одногруппников
-from typing import List
+    return profile_data
 
 # Эндпоинт для получения списка одногруппников
 from typing import List
@@ -299,6 +315,9 @@ async def change_user_role(
     # Modify the user's role
     user_to_change.role = role_change.new_role
     db.commit()
+
+
+
 
     return {"message": f"Роль пользователя с ID {user_id} изменена на {role_change.new_role}"}
 # Запуск приложения
